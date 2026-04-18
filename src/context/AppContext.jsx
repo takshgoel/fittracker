@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useState, useCallback } from 'react'
 import { dbGetAll, dbPut, dbDelete, dbPutMany } from '../lib/db'
-import { firebaseSignIn, FIREBASE_CONFIGURED } from '../lib/firebase'
+import { firebaseSignIn, firebaseGoogleSignIn, firebaseSignOut, onAuthUser, FIREBASE_CONFIGURED } from '../lib/firebase'
 import { onSyncState, startSyncSchedule, syncNow } from '../lib/sync'
 import { SEED_EXERCISES, SEED_WEIGHT, SEED_CARDIO, SEED_ALCOHOL } from '../data/seedData'
 
@@ -49,6 +49,7 @@ const SEEDED_KEY = 'fitness_seeded_v1'
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [syncState, setSyncState] = useState({ isSyncing: false, lastSyncTime: null, pendingCount: 0 })
+  const [firebaseUser, setFirebaseUser] = useState(null)
   const [settings, setSettingsState] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fitness_settings') || '{}') } catch { return {} }
   })
@@ -86,17 +87,40 @@ export function AppProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    let stopSync = null
+    let unsubSync = null
+    let unsubAuth = null
+
     async function init() {
       await seedIfNeeded()
       await loadAll()
       if (FIREBASE_CONFIGURED) {
         await firebaseSignIn()
-        const stopSync = startSyncSchedule()
-        const unsubSync = onSyncState(setSyncState)
-        return () => { stopSync?.(); unsubSync() }
+        stopSync = startSyncSchedule()
+        unsubSync = onSyncState(setSyncState)
+        unsubAuth = onAuthUser((user) => {
+          setFirebaseUser(user)
+        })
       }
     }
+
     init()
+    return () => { stopSync?.(); unsubSync?.(); unsubAuth?.() }
+  }, [])
+
+  const googleSignIn = useCallback(async () => {
+    const user = await firebaseGoogleSignIn()
+    if (user) {
+      setFirebaseUser(user)
+      await syncNow()
+      await loadAll()
+    }
+    return user
+  }, [loadAll])
+
+  const signOut = useCallback(async () => {
+    await firebaseSignOut()
+    setFirebaseUser(null)
   }, [])
 
   // Actions
@@ -152,6 +176,9 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       ...state,
       syncState,
+      firebaseUser,
+      googleSignIn,
+      signOut,
       settings,
       updateSettings,
       addExercise,

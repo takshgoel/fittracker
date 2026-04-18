@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RefreshCw, AlertTriangle } from 'lucide-react'
+import { RefreshCw, AlertTriangle, LogIn, LogOut } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { dbClear } from '../lib/db'
 import { FIREBASE_CONFIGURED } from '../lib/firebase'
@@ -20,8 +20,22 @@ function Row({ label, sub, children }) {
 }
 
 export default function SettingsPage({ dark, setDark }) {
-  const { settings, updateSettings, reloadAll } = useApp()
+  const { settings, updateSettings, reloadAll, firebaseUser, googleSignIn, signOut } = useApp()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
+
+  async function handleGoogleSignIn() {
+    setSigningIn(true)
+    const user = await googleSignIn()
+    setSigningIn(false)
+    if (user) toast.success(`Signed in as ${user.email}`)
+    else toast.error('Sign-in failed or was cancelled')
+  }
+
+  async function handleSignOut() {
+    await signOut()
+    toast.success('Signed out')
+  }
 
   async function handleClearData() {
     await Promise.all(['exercises', 'weight', 'cardio', 'alcohol'].map(s => dbClear(s)))
@@ -89,10 +103,33 @@ export default function SettingsPage({ dark, setDark }) {
         <p className="section-title py-3.5">Sync</p>
         {FIREBASE_CONFIGURED ? (
           <div className="py-3.5 space-y-3">
-            <p className="text-[13px]" style={{ color: 'rgb(var(--text-secondary))' }}>Firebase sync is active</p>
-            <button onClick={syncNow} className="btn-secondary flex items-center gap-2">
-              <RefreshCw size={13} strokeWidth={2} /> Sync now
-            </button>
+            {firebaseUser && !firebaseUser.isAnonymous ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full" style={{ background: 'rgb(var(--green, 34 197 94))' }} />
+                  <p className="text-[13px]" style={{ color: 'rgb(var(--text-secondary))' }}>
+                    Syncing as <span className="font-medium" style={{ color: 'rgb(var(--text-primary))' }}>{firebaseUser.email}</span>
+                  </p>
+                </div>
+                <p className="text-[12px]" style={{ color: 'rgb(var(--text-tertiary))' }}>All devices signed into this account share the same data.</p>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={syncNow} className="btn-secondary flex items-center gap-2">
+                    <RefreshCw size={13} strokeWidth={2} /> Sync now
+                  </button>
+                  <button onClick={handleSignOut} className="btn-secondary flex items-center gap-2">
+                    <LogOut size={13} strokeWidth={2} /> Sign out
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px]" style={{ color: 'rgb(var(--text-secondary))' }}>Signed in anonymously — data stays on this device only.</p>
+                <p className="text-[12px]" style={{ color: 'rgb(var(--text-tertiary))' }}>Sign in with Google so your phone and laptop share the same account.</p>
+                <button onClick={handleGoogleSignIn} disabled={signingIn} className="btn-secondary flex items-center gap-2">
+                  <LogIn size={13} strokeWidth={2} /> {signingIn ? 'Signing in…' : 'Sign in with Google'}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="py-3.5 space-y-3">

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, set, get, update, onValue, off } from 'firebase/database'
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth'
+import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,6 +22,7 @@ let app = null
 let db = null
 let auth = null
 let currentUser = null
+const googleProvider = new GoogleAuthProvider()
 
 if (FIREBASE_CONFIGURED) {
   app = initializeApp(firebaseConfig)
@@ -32,7 +33,8 @@ if (FIREBASE_CONFIGURED) {
 export async function firebaseSignIn() {
   if (!FIREBASE_CONFIGURED || !auth) return null
   return new Promise((resolve) => {
-    onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      unsub()
       if (user) {
         currentUser = user
         resolve(user)
@@ -48,6 +50,36 @@ export async function firebaseSignIn() {
       }
     })
   })
+}
+
+export async function firebaseGoogleSignIn() {
+  if (!FIREBASE_CONFIGURED || !auth) return null
+  try {
+    const result = await signInWithPopup(auth, googleProvider)
+    currentUser = result.user
+    return result.user
+  } catch (e) {
+    console.warn('Google sign-in failed:', e.message)
+    return null
+  }
+}
+
+export async function firebaseSignOut() {
+  if (!FIREBASE_CONFIGURED || !auth) return
+  await signOut(auth)
+  currentUser = null
+}
+
+export function onAuthUser(callback) {
+  if (!FIREBASE_CONFIGURED || !auth) return () => {}
+  return onAuthStateChanged(auth, (user) => {
+    currentUser = user
+    callback(user)
+  })
+}
+
+export function getCurrentUser() {
+  return currentUser
 }
 
 export function getUserRef(path) {
