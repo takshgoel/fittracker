@@ -25,7 +25,6 @@ export default function SettingsPage({ dark, setDark }) {
 
   async function handleClearData() {
     await Promise.all(['exercises', 'weight', 'cardio', 'alcohol'].map(s => dbClear(s)))
-    localStorage.removeItem('fitness_seeded_v1')
     await reloadAll()
     toast.success('All local data cleared')
     setShowClearConfirm(false)
