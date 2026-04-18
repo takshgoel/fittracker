@@ -6,7 +6,11 @@
       "Bash(npm run *)",
       "mcp__Claude_Preview__preview_start",
       "Bash(pkill -f \"vite --host\")",
-      "Bash(taskkill /F /IM node.exe)"
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(gh pr create --title 'Fix: clear data no longer re-seeds demo data on reload' --body ' *)",
+      "Bash(gh auth *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)"
     ]
   }
 }
