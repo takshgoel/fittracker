@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RefreshCw, AlertTriangle, LogIn, LogOut } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { dbClear } from '../lib/db'
-import { FIREBASE_CONFIGURED } from '../lib/firebase'
+import { FIREBASE_CONFIGURED, GOOGLE_AUTH_CONFIGURED, getFirebaseConfigStatus } from '../lib/firebase'
 import { syncNow } from '../lib/sync'
 import Modal from '../components/ui/Modal'
 import toast from 'react-hot-toast'
@@ -23,6 +23,8 @@ export default function SettingsPage({ dark, setDark }) {
   const { settings, updateSettings, reloadAll, firebaseUser, googleSignIn, googleSignInRedirect, signOut } = useApp()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
+  const [showDiag, setShowDiag] = useState(false)
+  const configStatus = getFirebaseConfigStatus()
 
   async function handleGoogleSignIn() {
     setSigningIn(true)
@@ -133,9 +135,40 @@ export default function SettingsPage({ dark, setDark }) {
               <>
                 <p className="text-[13px]" style={{ color: 'rgb(var(--text-secondary))' }}>Signed in anonymously — data stays on this device only.</p>
                 <p className="text-[12px]" style={{ color: 'rgb(var(--text-tertiary))' }}>Sign in with Google so your phone and laptop share the same account.</p>
-                <button onClick={handleGoogleSignIn} disabled={signingIn} className="btn-secondary flex items-center gap-2">
-                  <LogIn size={13} strokeWidth={2} /> {signingIn ? 'Signing in…' : 'Sign in with Google'}
-                </button>
+                {!GOOGLE_AUTH_CONFIGURED && (
+                  <div className="rounded-xl px-3 py-2.5 text-[12px]" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', color: 'rgb(var(--text-secondary))' }}>
+                    ⚠ <strong>VITE_FIREBASE_AUTH_DOMAIN</strong> is missing in this deployment — Google Sign-In will fail with <code>auth/api-key-not-valid</code>. Add it in Vercel → Settings → Environment Variables.
+                  </div>
+                )}
+                <div className="flex gap-2 flex-wrap items-center">
+                  <button onClick={handleGoogleSignIn} disabled={signingIn} className="btn-secondary flex items-center gap-2">
+                    <LogIn size={13} strokeWidth={2} /> {signingIn ? 'Signing in…' : 'Sign in with Google'}
+                  </button>
+                  <button onClick={() => setShowDiag(d => !d)} className="text-[11px] underline" style={{ color: 'rgb(var(--text-tertiary))' }}>
+                    {showDiag ? 'hide' : 'show config'}
+                  </button>
+                </div>
+                {showDiag && (
+                  <div className="rounded-xl p-3 space-y-1 text-[11px] font-mono" style={{ background: 'rgb(var(--surface-raised))', border: '1px solid rgb(var(--border))' }}>
+                    {[
+                      ['VITE_FIREBASE_API_KEY', configStatus.apiKey],
+                      ['VITE_FIREBASE_AUTH_DOMAIN', configStatus.authDomain],
+                      ['VITE_FIREBASE_DATABASE_URL', configStatus.databaseURL],
+                      ['VITE_FIREBASE_PROJECT_ID', configStatus.projectId],
+                      ['VITE_FIREBASE_APP_ID', configStatus.appId],
+                    ].map(([name, present]) => (
+                      <div key={name} className="flex items-center gap-2">
+                        <span style={{ color: present ? '#22c55e' : '#ef4444' }}>{present ? '✓' : '✗'}</span>
+                        <span style={{ color: present ? 'rgb(var(--text-secondary))' : '#ef4444' }}>{name}</span>
+                      </div>
+                    ))}
+                    {configStatus.authDomainValue && (
+                      <div className="pt-1" style={{ color: 'rgb(var(--text-tertiary))' }}>
+                        authDomain: {configStatus.authDomainValue}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

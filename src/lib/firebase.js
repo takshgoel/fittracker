@@ -18,6 +18,23 @@ export const FIREBASE_CONFIGURED = !!(
   import.meta.env.VITE_FIREBASE_DATABASE_URL
 )
 
+// authDomain is required for Google Sign-In popup/redirect
+export const GOOGLE_AUTH_CONFIGURED = !!(
+  FIREBASE_CONFIGURED &&
+  import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+)
+
+export function getFirebaseConfigStatus() {
+  return {
+    apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: !!import.meta.env.VITE_FIREBASE_DATABASE_URL,
+    projectId: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    appId: !!import.meta.env.VITE_FIREBASE_APP_ID,
+    authDomainValue: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || null,
+  }
+}
+
 let app = null
 let db = null
 let auth = null
