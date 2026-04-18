@@ -20,16 +20,24 @@ function Row({ label, sub, children }) {
 }
 
 export default function SettingsPage({ dark, setDark }) {
-  const { settings, updateSettings, reloadAll, firebaseUser, googleSignIn, signOut } = useApp()
+  const { settings, updateSettings, reloadAll, firebaseUser, googleSignIn, googleSignInRedirect, signOut } = useApp()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
 
   async function handleGoogleSignIn() {
     setSigningIn(true)
-    const user = await googleSignIn()
+    const { user, error } = await googleSignIn()
     setSigningIn(false)
-    if (user) toast.success(`Signed in as ${user.email}`)
-    else toast.error('Sign-in failed or was cancelled')
+    if (user) {
+      toast.success(`Signed in as ${user.email}`)
+    } else if (!error || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      // user dismissed — no toast needed
+    } else if (error.code === 'auth/popup-blocked') {
+      toast('Popup blocked — redirecting to Google…', { icon: '↗' })
+      await googleSignInRedirect()
+    } else {
+      toast.error(`Sign-in failed (${error.code || error.message})`)
+    }
   }
 
   async function handleSignOut() {

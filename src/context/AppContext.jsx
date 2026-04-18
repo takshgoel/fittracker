@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useState, useCallback } from 'react'
 import { dbGetAll, dbPut, dbDelete, dbPutMany } from '../lib/db'
-import { firebaseSignIn, firebaseGoogleSignIn, firebaseSignOut, onAuthUser, FIREBASE_CONFIGURED } from '../lib/firebase'
+import { firebaseSignIn, firebaseGoogleSignIn, firebaseGoogleSignInRedirect, firebaseGetRedirectResult, firebaseSignOut, onAuthUser, FIREBASE_CONFIGURED } from '../lib/firebase'
 import { onSyncState, startSyncSchedule, syncNow } from '../lib/sync'
 import { SEED_EXERCISES, SEED_WEIGHT, SEED_CARDIO, SEED_ALCOHOL } from '../data/seedData'
 
@@ -95,12 +95,19 @@ export function AppProvider({ children }) {
       await seedIfNeeded()
       await loadAll()
       if (FIREBASE_CONFIGURED) {
+        // Pick up a pending redirect sign-in before falling back to anonymous
+        const redirectUser = await firebaseGetRedirectResult()
+        if (redirectUser) setFirebaseUser(redirectUser)
         await firebaseSignIn()
         stopSync = startSyncSchedule()
         unsubSync = onSyncState(setSyncState)
         unsubAuth = onAuthUser((user) => {
           setFirebaseUser(user)
         })
+        if (redirectUser) {
+          await syncNow()
+          await loadAll()
+        }
       }
     }
 
@@ -109,14 +116,20 @@ export function AppProvider({ children }) {
   }, [])
 
   const googleSignIn = useCallback(async () => {
-    const user = await firebaseGoogleSignIn()
-    if (user) {
+    try {
+      const user = await firebaseGoogleSignIn()
       setFirebaseUser(user)
       await syncNow()
       await loadAll()
+      return { user, error: null }
+    } catch (e) {
+      return { user: null, error: e }
     }
-    return user
   }, [loadAll])
+
+  const googleSignInRedirect = useCallback(async () => {
+    await firebaseGoogleSignInRedirect()
+  }, [])
 
   const signOut = useCallback(async () => {
     await firebaseSignOut()
@@ -178,6 +191,7 @@ export function AppProvider({ children }) {
       syncState,
       firebaseUser,
       googleSignIn,
+      googleSignInRedirect,
       signOut,
       settings,
       updateSettings,

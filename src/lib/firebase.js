@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, set, get, update, onValue, off } from 'firebase/database'
-import { getAuth, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth'
+import { getAuth, signInAnonymously, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -52,14 +52,32 @@ export async function firebaseSignIn() {
   })
 }
 
+// Throws a Firebase auth error — callers must catch and inspect e.code
 export async function firebaseGoogleSignIn() {
+  if (!FIREBASE_CONFIGURED || !auth) throw new Error('Firebase not configured')
+  const result = await signInWithPopup(auth, googleProvider)
+  currentUser = result.user
+  return result.user
+}
+
+// Used when popup is blocked (e.g. mobile browsers / installed PWA)
+export async function firebaseGoogleSignInRedirect() {
+  if (!FIREBASE_CONFIGURED || !auth) return
+  await signInWithRedirect(auth, googleProvider)
+}
+
+// Call once on app start to collect the redirect result if present
+export async function firebaseGetRedirectResult() {
   if (!FIREBASE_CONFIGURED || !auth) return null
   try {
-    const result = await signInWithPopup(auth, googleProvider)
-    currentUser = result.user
-    return result.user
+    const result = await getRedirectResult(auth)
+    if (result?.user) {
+      currentUser = result.user
+      return result.user
+    }
+    return null
   } catch (e) {
-    console.warn('Google sign-in failed:', e.message)
+    console.warn('Redirect sign-in result error:', e.code, e.message)
     return null
   }
 }
